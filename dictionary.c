@@ -65,7 +65,7 @@ int main(int argc, char **argv)
   /*compile regex*/
   reti = regcomp(&regex, "<WordDefinition>", 0);
   reti2 = regcomp(&regex2, "</WordDefinition>", 0);
-  if (reti) {
+  if (reti && reti2) {
     fprintf(stderr, "Could not compile regex\n");
     exit(1);
   }
