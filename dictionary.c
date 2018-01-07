@@ -1,6 +1,6 @@
 #include "csapp.h"
 #include <stdio.h>
-
+#include <regex.h>
 #include "csapp.h"
 
 int main(int argc, char **argv)
@@ -11,11 +11,23 @@ int main(int argc, char **argv)
   char str[MAXLINE];
   char *request_host_header="Host: services.aonaware.com";
   rio_t rio;
+  FILE *fp;
+  fpos_t position;
+  regex_t regex;
+  regex_t regex2;
+  int reti;
+  int reti2;
+  int match = 0;
+
+  /*open a file to write to*/
+  fp = fopen("temp.txt", "w+");
+  /*get the position of the file*/
+  fgetpos(fp, &position);
 
   if ((buffer = getenv("QUERY_STRING")) != NULL){
   }
 
-  strcpy(str, "/DictService/DictService.asmx/Define?");
+  strcpy(str, "/DictService/DictService.asmx/DefineInDict?dictId=wn&");
   strcat(str,buffer);
 
   char *request_uri = str, *newline = "\r\n";
@@ -34,8 +46,7 @@ int main(int argc, char **argv)
   int stop_string_len = strlen(stop_string);
 
   while((retval = Rio_readlineb(&rio, buf, MAXLINE)) > 0) {
-    fprintf(stdout, "response: %s\n", buf);
-    fflush(stdout);
+    fprintf(fp, "%s\n", buf);
 
     /*                                                                                                                                                                              
      * GROSS HACK: It seems this particular server doesn't send a                                                                                                                   
@@ -46,65 +57,38 @@ int main(int argc, char **argv)
     if(strncmp(buf, stop_string, stop_string_len) == 0) {
       break;
     }
+
   }
+  fsetpos(fp, &position);
+
+  /*do regex stuff*/
+  /*compile regex*/
+  reti = regcomp(&regex, "<WordDefinition>", 0);
+  reti2 = regcomp(&regex2, "</WordDefinition>", 0);
+  if (reti) {
+    fprintf(stderr, "Could not compile regex\n");
+    exit(1);
+  }
+
+  /*execute regex*/
+  char buff[255];
+  while (fgets(buff, 255, fp)) {
+    reti = regexec(&regex, buff, 0, NULL, 0);
+    reti2 = regexec(&regex2, buff, 0, NULL, 0);
+    if (reti == 0 && match == 0) {
+      match = 1;
+    }
+    else if (reti2 == 0 && match == 1) {
+      break;
+    }
+    else if (match == 1) {
+      fprintf(stdout, "%s\n", buff);
+      fflush(stdout);
+    }
+  }
+  
+  fclose(fp);
 
   Close(clientfd); //line:netp:echoclient:close
   exit(0);
 }
-/* $end echoclientmain
-
-int main(void) {
-  char *buf;
-  char arg1[MAXLINE], content[MAXLINE];
-  int clientfd;
-  char str[MAXLINE];
-  char *rio;
-  char *command;
-
-  /*get input from user*/
-/*if ((buf = getenv("QUERY_STRING")) != NULL){
-  }
-  
-  strcpy(str, "GET /DictService/DictService.asmx/Define?");
-  strcat(str,buf);
-  strcat(str," HTTP/1.1\nHost: services.aonaware.com\n\n");
-
-  command = str;
-  /* open a text file to write the info that will be parsed*/
-/*FILE * fp;
-  fp = fopen("temp.txt","w");
-  /*open a connection with the dictionary api in order to get the definition*/
-/*clientfd = (Open_clientfd("services.aonaware.com", "80"));
-  Rio_readinitb(&rio, clientfd);
-  Rio_writen(clientfd, command, strlen(command));
-  Rio_readlineb(&rio, buf, MAXLINE);
-  sprintf (content, "%s", buf);
- 
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Rio_readlineb(&rio, buf, MAXLINE);
-  Fputs(buf, stdout);
-  fclose(fp);
-  /* Make the response body */
-/*sprintf(content,"%s", buf);
-  sprintf(content, "%sTHE Internet addition portal.\r\n<p>", content);
-  sprintf(content, "%sThanks for visiting!\r\n", content);
-
- /* Generate the HTTP response */
-/*printf("Connection: close\r\n");
-  printf("Content-length: %d\r\n", (int)strlen(content));
-  printf("Content-type: text/html\r\n\r\n");
-  printf("%s", content);
-  fflush(stdout);
-
-  exit(0);
-}
-*/
